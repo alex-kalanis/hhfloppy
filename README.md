@@ -41,3 +41,22 @@ EVENT_STORE_ADDRESS=http://127.0.0.1:5000/ uv run python ./src/hhfloppy/pyhxcfe.
 
 This script batch converts a directory of floppy dumps for the Atari 8-bit micros to the ATR format.
 It essentially implements the following tutorial as a script: https://retroherna.org/wiki/doku.php?id=organizace:navody:zalohovani:atari8bit
+
+## Install as part of other project
+
+Just insert it into toml or call `pip` down there:
+
+```toml
+dependencies = [
+    "hhfloppy",
+]
+
+[tool.uv.sources]
+hhfloppy = { git = "https://github.com/hernihistorie/hhfloppy" }
+```
+
+or get it straight from source:
+
+```sh
+pip install git+https://github.com/hernihistorie/hhfloppy
+```
