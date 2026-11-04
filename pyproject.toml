@@ -1,3 +1,7 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
 [project]
 name = "hhfloppy"
 version = "1.1.17"
@@ -6,8 +10,18 @@ authors = [
     { name = "Sanqui", email = "me@sanqui.net" },
     { name = "Starfooty", email = "me@kalanys.com" },
 ]
-readme = "README.md"
 requires-python = ">=3.9"
+readme = "README.md"
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Science/Research',
+    'Intended Audience :: Developers',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Topic :: System :: Archiving',
+    'Topic :: System :: Hardware',
+    'Typing :: Typed',
+]
 dependencies = [
     "asyncssh>=2.19.0",
     "blake3>=1.0.0",
@@ -27,3 +41,6 @@ test = [
 dev = [
     'pytest',
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
