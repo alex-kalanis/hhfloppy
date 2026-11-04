@@ -1,4 +1,4 @@
-from __future__ import annotations # Needed to fix https://github.com/jcrist/msgspec/issues/924
+from __future__ import annotations  # Needed to fix https://github.com/jcrist/msgspec/issues/924
 
 import datetime
 from typing import NewType, Union
@@ -7,22 +7,29 @@ import uuid
 import msgspec
 from msgspec import field
 
-from .datatypes import HHFLOPPY_EVENT_DATA_CLASS_UNION, CommandRunID, FileConversionID, FileMetadata, FloppyDiskFormat, FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, HHFloppyTaggedStruct, FloppyDiskCaptureIDSource, FloppyDiskCaptureID, PyHXCFERunID, ProgramName
+from .datatypes import HHFLOPPY_EVENT_DATA_CLASS_UNION, CommandRunID, FileConversionID, FileMetadata, FloppyDiskFormat, \
+    FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, HHFloppyTaggedStruct, FloppyDiskCaptureIDSource, \
+    FloppyDiskCaptureID, PyHXCFERunID, ProgramName
+from shared import UuidGenerator # ..
 
 EVENT_VERSION = 10
 EVENT_NAMESPACE = 'hhfloppy'
 
 EventID = NewType('EventID', uuid.UUID)
+
+
 class Event(HHFloppyTaggedStruct, kw_only=True, frozen=True):
     """Base class for events."""
 
     event_version: int = EVENT_VERSION
     event_timestamp: datetime.datetime = field(default_factory=datetime.datetime.now)
     event_namespace: str = EVENT_NAMESPACE
-    event_id: EventID = field(default_factory=lambda: EventID(uuid.uuid7()))
+    event_id: EventID = field(default_factory=lambda: EventID(UuidGenerator.uuid7()))
+
 
 class TestEvent(Event, kw_only=True, frozen=True):
     test_data: str
+
 
 class PyHXCFEERunStarted(Event, frozen=True):
     """
@@ -34,6 +41,7 @@ class PyHXCFEERunStarted(Event, frozen=True):
     host: str | None
     start_time: str
     git_revision: str
+
 
 class FloppyDiskCaptureDirectoryConverted(Event, frozen=True):
     """
@@ -47,6 +55,7 @@ class FloppyDiskCaptureDirectoryConverted(Event, frozen=True):
     success: bool
     formats: list[str]
     files_metadata: list[FileMetadata] | None = None
+
 
 class FloppyDiskCaptureSummarized(Event, frozen=True):
     """
@@ -68,6 +77,7 @@ class PyHXCFEERunFinished(Event, frozen=True):
     """
     pyhxcfe_run_id: PyHXCFERunID
 
+
 class CommandRan(Event, frozen=True):
     """
     Event triggered when an external command has been run.
@@ -76,7 +86,8 @@ class CommandRan(Event, frozen=True):
     exit_code: int
     stdout: str
     stderr: str
-    command_run_id: CommandRunID = field(default_factory=lambda: CommandRunID(uuid.uuid7()))
+    command_run_id: CommandRunID = field(default_factory=lambda: CommandRunID(UuidGenerator.uuid7()))
+
 
 class FileConverted(Event, frozen=True):
     """
@@ -88,7 +99,8 @@ class FileConverted(Event, frozen=True):
     program: ProgramName
     has_warnings: bool
     has_errors: bool
-    file_conversion_id: FileConversionID = field(default_factory=lambda: FileConversionID(uuid.uuid7()))
+    file_conversion_id: FileConversionID = field(default_factory=lambda: FileConversionID(UuidGenerator.uuid7()))
+
 
 class FloppyDiskCaptureConverted(Event, frozen=True):
     """
@@ -102,6 +114,7 @@ class FloppyDiskCaptureConverted(Event, frozen=True):
     target_format: FloppyDiskFormat
     has_warnings: bool
     has_errors: bool
+
 
 HHFLOPPY_EVENT_CLASS_UNION = Union[
     TestEvent,

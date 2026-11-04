@@ -125,7 +125,7 @@ class Track:
         sector_cylinder_map_present = (head & 0x80) != 0
         sector_head_map_present = (head & 0x40) != 0
         head = head & 0x01
-        sector_size = 2**(7 + sector_size)
+        sector_size = 2 ** (7 + sector_size)
         mode = TrackMode(mode_value)
         track_data = track_data[struct.calcsize(Track._TRACK_HEADER_FORMAT):]
 

@@ -13,19 +13,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import uuid
 
 import click
 from jinja2 import Environment, FileSystemLoader
 from tqdm import tqdm
 from util import get_directory_files_metadata, floppy_disk_capture_filename_to_id, get_git_version
-from python_imd.imd import Disk
-from event.events import Event, FloppyDiskCaptureDirectoryConverted, FloppyDiskCaptureSummarized, PyHXCFEERunFinished, PyHXCFEERunStarted
-from event.event_store import EventStore
-from event.datatypes import FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, FloppyDiskCaptureIDSource, PyHXCFERunID
+from .python_imd.imd import Disk
+from .event.events import Event, FloppyDiskCaptureDirectoryConverted, FloppyDiskCaptureSummarized, PyHXCFEERunFinished, \
+    PyHXCFEERunStarted
+from .event.event_store import EventStore
+from .event.datatypes import FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, FloppyDiskCaptureIDSource, \
+    PyHXCFERunID
+from .shared import UuidGenerator
 
 HXCFE_BINARY_PATH = Path('/home/sanqui/ha/HxCFloppyEmulator/build/hxcfe')
-WORKERS=16
+WORKERS = 16
 
 FORMATS = [
     ('GENERIC_XML', 'xml'),
@@ -43,7 +45,9 @@ FORMATS = [
     ('PNG_DISK_IMAGE', 'png'),
 ]
 
-def convert_disk_capture_directory(pyhxcfe_run_id: PyHXCFERunID, hxcfe_binary_path: Path, floppy_subdir: Path, extra_formats: list[tuple[str, str]] | None = None) -> list[Event]:
+
+def convert_disk_capture_directory(pyhxcfe_run_id: PyHXCFERunID, hxcfe_binary_path: Path, floppy_subdir: Path,
+                                   extra_formats: list[tuple[str, str]] | None = None) -> list[Event]:
     floppy_disk_capture_id = floppy_disk_capture_filename_to_id(floppy_subdir.name)
     parsed_dir = floppy_subdir.parent / (floppy_subdir.name + "_parsed_wip")
     if not os.path.exists(parsed_dir):
@@ -92,6 +96,7 @@ def convert_disk_capture_directory(pyhxcfe_run_id: PyHXCFERunID, hxcfe_binary_pa
         )
     ]
 
+
 def parse_name(floppy_subdir_name: str) -> FloppyInfoFromName:
     """
     Parse floppy subdirectory name such as "2025-10-03_16-52-51_sanqui_hh9125_35fd4-0001_parsed"
@@ -102,19 +107,19 @@ def parse_name(floppy_subdir_name: str) -> FloppyInfoFromName:
     match = re.match(pattern, floppy_subdir_name)
     if not match:
         raise ValueError(f"Cannot parse floppy subdirectory name: {floppy_subdir_name}")
-    
+
     datetime_str = match.group(1)
     operator = match.group(2)
     item_identifier = match.group(3)
     drive = match.group(4)
     dump_index_str = match.group(5)
-    
+
     # Parse hh_asset_id from item_identifier if it starts with "hh" or "rh"
     hh_asset_id = None
     if item_identifier.startswith(('hh', 'rh')):
         # Extract numeric part after the prefix
         hh_asset_id = int(re.sub(r'^(hh|rh)', '', item_identifier))
-    
+
     return FloppyInfoFromName(
         datetime=datetime_str,
         operator=operator,
@@ -129,10 +134,10 @@ def parse_generic_xml(xml_path: Path) -> FloppyInfoFromXML:
     """Parse GENERIC_XML.xml file and extract key information."""
     tree = ET.parse(xml_path)
     root = tree.getroot()
-    
+
     layout = root.find('layout')
     assert layout is not None
-    
+
     file_size = root.findtext('file_size')
     number_of_track = layout.findtext('number_of_track')
     number_of_side = layout.findtext('number_of_side')
@@ -142,7 +147,7 @@ def parse_generic_xml(xml_path: Path) -> FloppyInfoFromXML:
     bitrate = layout.findtext('bitrate')
     rpm = layout.findtext('rpm')
     crc32 = layout.findtext('crc32')
-    
+
     assert file_size is not None
     assert number_of_track is not None
     assert number_of_side is not None
@@ -152,7 +157,7 @@ def parse_generic_xml(xml_path: Path) -> FloppyInfoFromXML:
     assert bitrate is not None
     assert rpm is not None
     assert crc32 is not None
-    
+
     return FloppyInfoFromXML(
         file_size=int(file_size),
         number_of_tracks=int(number_of_track),
@@ -164,18 +169,17 @@ def parse_generic_xml(xml_path: Path) -> FloppyInfoFromXML:
         rpm=int(rpm),
         crc32=int(crc32, 16),
     )
-    
 
 
 def parse_imd_file(imd_path: Path) -> FloppyInfoFromIMD:
     """Parse IMD file and extract key information."""
     try:
         disk = Disk.from_file(str(imd_path))
-        
+
         # Collect statistics
         mode_names: list[str] = []
         errors = 0
-        
+
         for track in disk.tracks:
             if track.mode.name not in mode_names:
                 mode_names.append(track.mode.name)
@@ -184,7 +188,7 @@ def parse_imd_file(imd_path: Path) -> FloppyInfoFromIMD:
                 if hasattr(record, 'record_type') and hasattr(record.record_type, 'has_error'):
                     if record.record_type.has_error:
                         errors += 1
-        
+
         return FloppyInfoFromIMD(
             parsing_success=True,
             tracks=len(disk.tracks),
@@ -201,12 +205,14 @@ def parse_imd_file(imd_path: Path) -> FloppyInfoFromIMD:
             parsing_errors=f'Error: {str(e)}',
         )
 
+
 @dataclass
-class FloppySummaryRow():
+class FloppySummaryRow:
     summary_event: FloppyDiskCaptureSummarized
     floppy_subdir: Path
 
-def process_converted_disks(pyhxcfe_run_id: PyHXCFERunId, disk_captures_dir: Path, output_file: Path):
+
+def process_converted_disks(pyhxcfe_run_id: PyHXCFERunID, disk_captures_dir: Path, output_file: Path):
     """Gather data from converted disks and generate HTML summary."""
 
     floppy_summaries: list[FloppySummaryRow] = []
@@ -215,22 +221,22 @@ def process_converted_disks(pyhxcfe_run_id: PyHXCFERunId, disk_captures_dir: Pat
     for floppy_dir in sorted(disk_captures_dir.iterdir()):
         if not floppy_dir.is_dir():
             continue
-            
+
         for floppy_subdir in sorted(floppy_dir.iterdir()):
             if not floppy_subdir.name.endswith("_parsed"):
                 continue
             floppy_disk_capture_id = floppy_disk_capture_filename_to_id(floppy_subdir.name.removesuffix("_parsed"))
 
             name_info: FloppyInfoFromName = parse_name(floppy_subdir.name)
-            
+
             xml_info: FloppyInfoFromXML = parse_generic_xml(floppy_subdir / "GENERIC_XML.xml")
-            
+
             imd_info: FloppyInfoFromIMD = parse_imd_file(floppy_subdir / "IMD_IMG.imd")
-            
+
             summary_event = FloppyDiskCaptureSummarized(
                 pyhxcfe_run_id=pyhxcfe_run_id,
                 floppy_disk_capture_id=floppy_disk_capture_id,
-                floppy_disk_capture_id_source='hashed_directory_name',
+                floppy_disk_capture_id_source=FloppyDiskCaptureIDSource.hashed_directory_name,
                 floppy_disk_capture_directory=floppy_subdir.name,
                 name_info=name_info,
                 xml_info=xml_info,
@@ -245,25 +251,28 @@ def process_converted_disks(pyhxcfe_run_id: PyHXCFERunId, disk_captures_dir: Pat
             floppy_summaries.append(floppy_summary_row)
 
     # Generate HTML using Jinja2
-    template_dir = Path(__file__) .parent / 'templates'
+    template_dir = Path(__file__).parent / 'templates'
     env = Environment(loader=FileSystemLoader(template_dir))
     template = env.get_template('summary.html')
-    
+
     html = template.render(
         total_floppies=len(floppy_summaries),
         generated_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         source_directory=str(disk_captures_dir),
         floppy_summaries=floppy_summaries
     )
-    
+
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)
 
-    
     print(f"\nHTML summary generated: {output_file}")
     print(f"Total floppies: {len(floppy_summaries)}")
 
     return [summary.summary_event for summary in floppy_summaries]
+
+
+def get_hxcfe_id() -> PyHXCFERunID:
+    return PyHXCFERunID(UuidGenerator.uuid7())
 
 
 @click.command()
@@ -305,7 +314,7 @@ def process_converted_disks(pyhxcfe_run_id: PyHXCFERunId, disk_captures_dir: Pat
     default=None,
     help='Output path for HTML summary (default: summary_TIMESTAMP.html in disk captures dir)'
 )
-def main(disk_captures_dir: Path, hxcfe_binary_path: Path, extra_formats: tuple[str, ...], workers: int, redo: bool, 
+def main(disk_captures_dir: Path, hxcfe_binary_path: Path, extra_formats: tuple[str, ...], workers: int, redo: bool,
          summary_only: bool, output: Path | None):
     """Process disk captures with HxCFloppyEmulator.
     
@@ -322,7 +331,7 @@ def main(disk_captures_dir: Path, hxcfe_binary_path: Path, extra_formats: tuple[
 
     event_store = EventStore(namespace='hhfloppy', app="pyhxcfe")
 
-    run_id = uuid.uuid7()
+    run_id = get_hxcfe_id()
 
     event_store.emit_event(PyHXCFEERunStarted(
         pyhxcfe_run_id=run_id,
@@ -383,13 +392,13 @@ def main(disk_captures_dir: Path, hxcfe_binary_path: Path, extra_formats: tuple[
                         pbar.write(f"Failed to complete: {type(ex).__name__}: {ex}")
                         raise ex
                     pbar.update(1)
-        
+
         event_store.emit_events(results)
 
     if output is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output = disk_captures_dir / f"summary_{timestamp}.html"
-    
+
     events = process_converted_disks(run_id, disk_captures_dir, output)
     event_store.emit_events(events)
 
@@ -398,6 +407,7 @@ def main(disk_captures_dir: Path, hxcfe_binary_path: Path, extra_formats: tuple[
     ))
 
     event_store.push()
+
 
 if __name__ == '__main__':
     main()

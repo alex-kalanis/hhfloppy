@@ -14,11 +14,11 @@ import click
 import websockets
 
 # NUM_TRACKS = 82
-#DUMP_TIME = 440
-#DUMP_TIME = 100
+# DUMP_TIME = 440
+# DUMP_TIME = 100
 DUMP_TIME = 840
 
-INVENTORY_CODE="hh"
+INVENTORY_CODE = "hh"
 
 
 @dataclass
@@ -26,7 +26,7 @@ class Pauline():
     address: str
     config: str | None = None
     drives: list[str] = field(default_factory=lambda: ['unkfd0', 'unkfd1', 'unkfd2', 'unkfd3', 'unkfd4', 'unkfd5'])
-    
+
     def __post_init__(self):
         self.pending_tasks = set()
 
@@ -50,7 +50,7 @@ class Pauline():
         config_result = await self.ssh.run("cat /home/pauline/Settings/drives.script", check=True)
         assert isinstance(config_result.stdout, str)
         self.config = config_result.stdout
-        
+
         # parse config
         for line in self.config.split('\n'):
             line = line.strip()
@@ -76,20 +76,20 @@ class Pauline():
     async def send_ws(self, msg: str) -> None:
         await self.ws.send(msg)
         print(f">>> {msg}")
-    
+
     async def return_heads(self, drives: list[int]):
         print("Returning heads...")
         for floppy_index in drives:
             await self.send_ws(f"recalibrate {floppy_index}")
             await asyncio.sleep(4.5)
-        
+
         print("Returned heads")
         await self.send_ws(f"sound 2200 100")
         await asyncio.sleep(0.1)
         await self.send_ws(f"sound 2200 100")
         await asyncio.sleep(0.1)
         await self.send_ws(f"sound 2300 200")
-    
+
     async def upload_to_nas(self):
         if self.offline:
             return
@@ -104,47 +104,47 @@ class Pauline():
             if not result.stdout:
                 print("No directories to upload")
                 return
-            
+
             subdirs = [d.strip() for d in result.stdout.strip().split('\n') if d.strip()]
-            
+
             if not subdirs:
                 print("No directories to upload")
                 return
-            
+
             # Create the destination directory first
             await self.ssh.run("mkdir -p /home/pauline/Disks_Captures_Done")
-            
+
             # Upload each subdirectory with progress bar
             bar = tqdm.tqdm(total=len(subdirs), desc='Uploading')
             for subdir in subdirs:
                 subdir_name = subdir.split('/')[-1]
                 bar.set_description(f'Uploading {subdir_name}')
-                
+
                 try:
                     result = await self.ssh.run(
                         f"scp -P 7722 -r {subdir} dumper@nas.herniarchiv.cz:dumps/pauline2/Disks_Captures/",
                         check=True
                     )
-                    
+
                     if result.stderr and "update_known_hosts: hostfile_replace_entries failed" in str(result.stderr):
                         # This happens on Pauline because the filesystem doesn't support links.
                         # bar.write(f"Note: update_known_hosts failed for {subdir_name}, but this is not a problem.")
                         pass
-                    
+
                     bar.write(f"Uploaded {subdir_name}")
-                    
+
                     await self.ssh.run(f"mv {subdir} /home/pauline/Disks_Captures_Done/")
                     # bar.write(f"Moved {subdir_name} to Disks_Captures_Done")
                     bar.update(1)
-                    
+
                 except asyncssh.process.ProcessError as e:
                     bar.write(f"Warning: Failed to upload {subdir_name}: {e}")
                     bar.update(1)
                     continue
-            
+
             bar.close()
             print("Done uploading")
-            
+
         except asyncssh.process.ProcessError:
             print("Warning: Uploading to NAS failed.  Does Pauline have internet connection?")
             return
@@ -155,11 +155,12 @@ class Pauline():
             async with asyncio.timeout(2.0):
                 await self.ws_image.send("get_image")
                 image_data = await self.ws_image.recv()
-                
+                image_data = image_data if isinstance(image_data, bytes) else image_data.encode()
+
                 # Ensure the images directory exists
                 image_dir = output_dir / f"{filename_base}_images"
                 image_dir.mkdir(exist_ok=True)
-                
+
                 # Save the image
                 image_path = image_dir / f"track{track}.{side}.png"
                 with open(image_path, "wb") as f:
@@ -177,16 +178,24 @@ class Pauline():
         finally:
             self.pending_tasks.remove(asyncio.current_task())
 
-    async def run_batch(self, floppy_names: list[str], operator: str | None = None, num_tracks: int = 82, num_sides: int = 2, offline: bool = False) -> None:
+    async def run_batch(
+            self,
+            floppy_names: list[str],
+            operator: str | None = None,
+            num_tracks: int = 82,
+            num_sides: int = 2,
+            offline: bool = False,
+    ) -> None:
         self.num_tracks = num_tracks
         self.num_sides = num_sides
         self.offline = offline
-        
+
         await self.connect()
 
         bar_outer = tqdm.tqdm(total=len(floppy_names), desc='floppy')
         bar_outer.update(0)
         last_floppy_name = None
+        dump_time = -1
         for floppy_index, (floppy_name, drive_name) in enumerate(zip(floppy_names, self.drives)):
             if floppy_name == '-':
                 bar_outer.write(f"Skipping floppy in drive {floppy_index}")
@@ -198,10 +207,10 @@ class Pauline():
             elif floppy_name.lower() == 'clean':
                 bar_outer.write(f"Please insert cleaning floppy in drive {drive_name} (index {floppy_index}), then press RETURN")
                 input()
-                dump_time=400
+                dump_time = 400
             else:
                 dump_time = DUMP_TIME
-            
+
             num_str = f"{floppy_index + 1}/{len(floppy_names)}"
             datetime_str = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             if not floppy_name.startswith(INVENTORY_CODE):
@@ -212,17 +221,18 @@ class Pauline():
 
             # TODO first check with the last sector to see if reading isn't bad
 
-            await self.send_ws(f"sound {1000 + 100*floppy_index} 100")
+            await self.send_ws(f"sound {1000 + 100 * floppy_index} 100")
             await self.send_ws("set MACINTOSH_GCR_MODE 0")
             await self.send_ws("index_to_dump 0")
-            await self.send_ws(f"dump_time {dump_time}")
+            await self.send_ws(f"dump_time {str(dump_time)}")
             try:
                 # static int readdisk(int drive, int dump_start_track,int dump_max_track,int dump_start_side,int dump_max_side,int high_res_mode,int doublestep,int ignore_index,int spy, char * name, char * comment, char * comment2, int start_index, int incmode, char * driveref, char * operator)
-                await self.send_ws(f'dump {floppy_index} 0 {self.num_tracks-1} 0 {self.num_sides-1} 0 0 0 0 "{filename}" "" 1 AUTO_INDEX_NAME "" "" ""')
+                await self.send_ws(f'dump {floppy_index} 0 {self.num_tracks - 1} 0 {self.num_sides - 1} 0 0 0 0 "{filename}" "" 1 AUTO_INDEX_NAME "" "" ""')
                 bar = tqdm.tqdm(total=self.num_tracks, desc='track', leave=False)
                 bar.update(0)
                 while True:
                     message = await self.ws.recv()
+                    message: str = message if isinstance(message, str) else message.decode()
                     bar.write(f"[{num_str}] <<< {message.strip()}")
                     # use regex to extract 37 and 0 from ...t_rh6791-0001/track37.0.hxcstream
                     match = re.search(r'/track(\d+)\.(\d+)\.hxcstream', message)
@@ -253,11 +263,11 @@ class Pauline():
                 await self.send_ws('stop')
                 raise
             last_floppy_name = floppy_name
-        
+
         bar_outer.close()
 
         print("Done dumping floppies")
-        
+
         await asyncio.gather(
             self.return_heads(drives=list(range(len(floppy_names)))),
             self.upload_to_nas()
@@ -269,6 +279,7 @@ class Pauline():
 
         print("Finished completely")
 
+
 @click.command()
 @click.argument('address')
 @click.argument('floppy_names', nargs=-1, required=True)
@@ -276,7 +287,14 @@ class Pauline():
 @click.option('--num-tracks', default=82, help='Number of tracks to dump (default: 82)')
 @click.option('--num-sides', default=2, help='Number of sides to dump (default: 2)')
 @click.option('--offline', default=False, is_flag=True, help='Disables uploading files to  NAS')
-def main(address: str, floppy_names: tuple[str, ...], operator: str | None, num_tracks: int, num_sides: int, offline: bool):
+def main(
+        address: str,
+        floppy_names: tuple[str, ...],
+        operator: str | None,
+        num_tracks: int,
+        num_sides: int,
+        offline: bool,
+):
     """
     Dump floppy disks using Pauline.
     
@@ -285,7 +303,9 @@ def main(address: str, floppy_names: tuple[str, ...], operator: str | None, num_
     Names of the floppies to dump (one or more). Use '-' to skip a drive, '+' to increment last name, 'clean' for cleaning disk.
     """
     pauline = Pauline(address=address)
-    asyncio.run(pauline.run_batch(floppy_names=list(floppy_names), operator=operator, num_tracks=num_tracks, num_sides=num_sides, offline=offline))
+    asyncio.run(pauline.run_batch(floppy_names=list(floppy_names), operator=operator, num_tracks=num_tracks,
+                                  num_sides=num_sides, offline=offline))
+
 
 if __name__ == "__main__":
     main()

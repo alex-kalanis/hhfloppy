@@ -8,30 +8,40 @@ from typing import Sequence
 import requests
 import msgspec
 
-from event.events import Event
+from .events import Event
 
 PUSH_KEY_LENGTH = 24
 DEFAULT_EVENT_STORE_ADDRESS = "https://inventory.herniarchiv.cz/"
 EVENT_STORE_PATH = "event_store"
 
+
 class EventStore:
-    def __init__(self, namespace: str, app: str, event_store_address: str | None=None) -> None:
+    def __init__(
+            self,
+            namespace: str,
+            app: str,
+            event_store_address: str | None = None,
+    ) -> None:
         """Initialize the event store."""
         self.namespace = namespace
         self.app = app
         self.events: list[Event] = []
-        self.event_store_url = (event_store_address or os.environ.get("EVENT_STORE_ADDRESS") or DEFAULT_EVENT_STORE_ADDRESS) + EVENT_STORE_PATH
+        self.event_store_url = (
+                                       event_store_address
+                                       or os.environ.get("EVENT_STORE_ADDRESS")
+                                       or DEFAULT_EVENT_STORE_ADDRESS
+                               ) + EVENT_STORE_PATH
 
     def emit_event(self, event: Event) -> None:
         """Emit an event."""
         print(f"Event emitted: {event}")
         self.events.append(event)
-    
+
     def emit_events(self, events: Sequence[Event]) -> None:
         """Emit multiple events."""
         for event in events:
             self.emit_event(event)
-    
+
     def push(self) -> None:
         """Push events to the API endpoint."""
 
@@ -74,7 +84,7 @@ class EventStore:
                     break
             attempts += 1
             time.sleep(2)
-        
+
         print("\nAuthorization confirmed.")
 
         push_data = {
@@ -101,5 +111,5 @@ class EventStore:
                 answer = input("Failed to push events.  Would you like to retry? (y/n): ").strip().lower()
                 if answer != "y":
                     finished = True
-        
+
         print("Push complete.")

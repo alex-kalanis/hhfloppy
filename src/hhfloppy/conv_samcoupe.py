@@ -11,17 +11,21 @@ from util import PathWithExtension, get_file_metadata, floppy_disk_capture_filen
 
 SAMDISK_BINARY_PATH = Path('deps/SAMdisk3811/SAMdisk.exe')
 
+
 class HFEPath(PathWithExtension):
     """Path container for files with the HFE extension."""
     EXTENSION = '.hfe'
+
 
 class MGTPath(PathWithExtension):
     """Path container for files with the MGT extension."""
     EXTENSION = '.mgt'
 
+
 class DSKPath(PathWithExtension):
     """Path container for files with the DSK extension."""
     EXTENSION = '.dsk'
+
 
 def run_command(command: list[str]) -> CommandRan:
     output = subprocess.run(
@@ -41,7 +45,11 @@ def run_command(command: list[str]) -> CommandRan:
     )
     return event
 
-def samdisk_convert(input_filepath: HFEPath, output_filepath: MGTPath | DSKPath) -> tuple[CommandRan, FileConverted]:
+
+def samdisk_convert(
+        input_filepath: HFEPath,
+        output_filepath: MGTPath | DSKPath,
+) -> tuple[CommandRan, FileConverted]:
     command: list[str] = [
         'wine',
         str(SAMDISK_BINARY_PATH),
@@ -75,9 +83,13 @@ def samdisk_convert(input_filepath: HFEPath, output_filepath: MGTPath | DSKPath)
         has_warnings=has_warnings,
         has_errors=has_errors,
     )
-    return (command_ran_event, file_converted_event)
+    return command_ran_event, file_converted_event
 
-def floppy_disk_capture_convert(input_filepath: HFEPath, target_format: FloppyDiskFormat) -> tuple[CommandRan, FileConverted, FloppyDiskCaptureConverted]:
+
+def floppy_disk_capture_convert(
+        input_filepath: HFEPath,
+        target_format: FloppyDiskFormat,
+) -> tuple[CommandRan, FileConverted, FloppyDiskCaptureConverted]:
     if target_format == FloppyDiskFormat.MGT:
         output_filepath = MGTPath(input_filepath.path.parent / 'disk.mgt')
     elif target_format == FloppyDiskFormat.DSK:
@@ -98,7 +110,8 @@ def floppy_disk_capture_convert(input_filepath: HFEPath, target_format: FloppyDi
         has_errors=file_converted_event.has_errors,
     )
 
-    return (command_ran_event, file_converted_event, floppy_disk_capture_converted_event)
+    return command_ran_event, file_converted_event, floppy_disk_capture_converted_event
+
 
 def conv_dir(dirpath: Path) -> list[Event]:
     events: list[Event] = []
@@ -122,7 +135,7 @@ def conv_dir(dirpath: Path) -> list[Event]:
                 num_files_with_warnings += 1
             if event.has_errors:
                 num_files_with_errors += 1
-    
+
     print("Conversion summary:")
     print(f"  Total files converted: {len(events)}")
     print(f"  Files with warnings: {num_files_with_warnings}")
@@ -144,6 +157,7 @@ def main(dirpath: Path = typer.Argument(..., help="Directory path containing .hf
         event_store.push()
     else:
         print("No events to push.")
+
 
 if __name__ == '__main__':
     typer.run(main)
