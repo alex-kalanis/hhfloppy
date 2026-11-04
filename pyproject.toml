@@ -1,9 +1,13 @@
 [project]
 name = "hhfloppy"
 version = "1.1.17"
-description = "Add your description here"
+description = "Tools for working with floppies via Pauline"
+authors = [
+    { name = "Sanqui", email = "me@sanqui.net" },
+    { name = "Starfooty", email = "me@kalanys.com" },
+]
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.9"
 dependencies = [
     "asyncssh>=2.19.0",
     "blake3>=1.0.0",
@@ -14,4 +18,12 @@ dependencies = [
     "tqdm>=4.67.1",
     "typer>=0.20.0",
     "websockets>=14.2",
+]
+
+[project.optional-dependencies]
+test = [
+    'pytest',
+]
+dev = [
+    'pytest',
 ]
