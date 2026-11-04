@@ -10,7 +10,7 @@ from msgspec import field
 from .datatypes import HHFLOPPY_EVENT_DATA_CLASS_UNION, CommandRunID, FileConversionID, FileMetadata, FloppyDiskFormat, \
     FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, HHFloppyTaggedStruct, FloppyDiskCaptureIDSource, \
     FloppyDiskCaptureID, PyHXCFERunID, ProgramName
-from shared import UuidGenerator # ..
+from util import UuidGenerator # ..
 
 EVENT_VERSION = 10
 EVENT_NAMESPACE = 'hhfloppy'

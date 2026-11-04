@@ -17,14 +17,13 @@ from datetime import datetime
 import click
 from jinja2 import Environment, FileSystemLoader
 from tqdm import tqdm
-from util import get_directory_files_metadata, floppy_disk_capture_filename_to_id, get_git_version
+from util import get_directory_files_metadata, floppy_disk_capture_filename_to_id, get_git_version, UuidGenerator
 from .python_imd.imd import Disk
 from .event.events import Event, FloppyDiskCaptureDirectoryConverted, FloppyDiskCaptureSummarized, PyHXCFEERunFinished, \
     PyHXCFEERunStarted
 from .event.event_store import EventStore
 from .event.datatypes import FloppyInfoFromIMD, FloppyInfoFromName, FloppyInfoFromXML, FloppyDiskCaptureIDSource, \
     PyHXCFERunID
-from .shared import UuidGenerator
 
 HXCFE_BINARY_PATH = Path('/home/sanqui/ha/HxCFloppyEmulator/build/hxcfe')
 WORKERS = 16

@@ -1,13 +1,30 @@
 import hashlib
 import uuid
+import sys
 import subprocess
 from pathlib import Path
 
 import blake3
 
-from .event.datatypes import FileChecksums, FileMetadata, FloppyDiskCaptureID
+from event.datatypes import FileChecksums, FileMetadata, FloppyDiskCaptureID
 
 FLOPPY_DISK_CAPTURE_FILENAME_UUID_NAMESPACE = uuid.UUID('019a9df8-6505-7032-923f-12a806f8bdbf')
+
+
+class UuidGenerator:
+
+    @staticmethod
+    def uuid7() -> uuid.UUID:
+        if sys.version_info[:3] < (3, 14):
+            try:
+                from uuid_extensions import uuid7
+                return uuid7()
+            except ModuleNotFoundError:
+                print("Please install uuid extensions:")
+                print("pip install uuid7")
+                exit(1)
+        else:
+            return uuid.uuid7()
 
 
 def get_git_version() -> str:
